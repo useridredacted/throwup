@@ -74,7 +74,7 @@ namespace ThrowUpMod
         {
             if (Camera.main == null) return;
 
-            // 1. Check if spray can is equipped (game method or custom ID check)
+            // 1. Check if spray can is equipped
             bool isEquipped = false;
             try
             {
@@ -85,17 +85,6 @@ namespace ThrowUpMod
                 }
             }
             catch {}
-
-            if (!isEquipped && PlayerInventory.Instance != null && PlayerInventory.Instance.EquippedItem != null)
-            {
-                string id = PlayerInventory.Instance.EquippedItem.ID.ToLower();
-                string name = PlayerInventory.Instance.EquippedItem.Name.ToLower();
-                MelonLogger.Msg($"Checking equipped item - ID: {id}, Name: {name}");
-                if (id.Contains("spray") || id.Contains("paint") || name.Contains("spray") || name.Contains("paint"))
-                {
-                    isEquipped = true;
-                }
-            }
 
             if (!isEquipped)
             {
@@ -176,6 +165,29 @@ namespace ThrowUpMod
                 }
             }
             catch {}
+        }
+    }
+
+    [HarmonyPatch(typeof(SpraySurfaceInteraction), "IsSprayCanEquipped")]
+    public static class Patch_IsSprayCanEquipped
+    {
+        public static bool Prefix(ref bool __result)
+        {
+            try
+            {
+                if (PlayerInventory.Instance != null && PlayerInventory.Instance.EquippedItem != null)
+                {
+                    string id = PlayerInventory.Instance.EquippedItem.ID.ToLower();
+                    string name = PlayerInventory.Instance.EquippedItem.Name.ToLower();
+                    if (id.Contains("spray") || id.Contains("paint") || name.Contains("spray") || name.Contains("paint"))
+                    {
+                        __result = true;
+                        return false; // Skip original method
+                    }
+                }
+            }
+            catch {}
+            return true;
         }
     }
 
