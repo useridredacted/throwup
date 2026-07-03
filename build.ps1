@@ -23,7 +23,11 @@ $refFiles += "$gameDir\MelonLoader\net6\0Harmony.dll"
 $refFiles += "$gameDir\MelonLoader\net6\Il2CppInterop.Runtime.dll"
 $refFiles += "$gameDir\MelonLoader\Il2CppAssemblies\Assembly-CSharp.dll"
 $refFiles += "$gameDir\MelonLoader\Il2CppAssemblies\UnityEngine.CoreModule.dll"
+$refFiles += "$gameDir\MelonLoader\Il2CppAssemblies\UnityEngine.PhysicsModule.dll"
+$refFiles += "$gameDir\MelonLoader\Il2CppAssemblies\UnityEngine.InputLegacyModule.dll"
 $refFiles += "$gameDir\MelonLoader\Il2CppAssemblies\Il2CppFishNet.Runtime.dll"
+$refFiles += "$gameDir\MelonLoader\Il2CppAssemblies\Il2Cppmscorlib.dll"
+$refFiles += "$gameDir\MelonLoader\Il2CppAssemblies\Il2CppScheduleOne.Core.dll"
 
 $refArgs = $refFiles | ForEach-Object { "/r:`"$_`"" }
 
