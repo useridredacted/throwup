@@ -74,10 +74,16 @@ namespace ThrowUpMod
                 {
                     if (IsSprayItemEquipped())
                     {
-                        isHoldingPreview = true;
                         currentPreviewSurface = GetNextSpraySurface();
                         if (currentPreviewSurface != null)
                         {
+                            isHoldingPreview = true;
+                            // Disable colliders temporarily so raycasts pass through during placement
+                            var colliders = currentPreviewSurface.GetComponentsInChildren<Collider>();
+                            foreach (var col in colliders)
+                            {
+                                col.enabled = false;
+                            }
                             MelonLogger.Msg($"Started preview with SpraySurface: {currentPreviewSurface.name}");
                         }
                     }
@@ -149,21 +155,12 @@ namespace ThrowUpMod
         {
             if (currentPreviewSurface == null || Camera.main == null) return;
 
-            var surfaceGo = currentPreviewSurface.gameObject;
-            
-            // Temporarily disable the surface so we don't raycast hit ourselves
-            bool wasActive = surfaceGo.activeSelf;
-            surfaceGo.SetActive(false);
-
             Ray ray = new Ray(Camera.main.transform.position, Camera.main.transform.forward);
             RaycastHit hit;
             int mask = ~LayerMask.GetMask("Player", "Ignore Raycast");
-            bool didHit = Physics.Raycast(ray, out hit, 10f, mask);
-
-            surfaceGo.SetActive(true);
-
-            if (didHit)
+            if (Physics.Raycast(ray, out hit, 10f, mask))
             {
+                var surfaceGo = currentPreviewSurface.gameObject;
                 surfaceGo.transform.position = hit.point + hit.normal * 0.01f;
                 surfaceGo.transform.rotation = Quaternion.LookRotation(-hit.normal, Vector3.up);
             }
@@ -172,6 +169,13 @@ namespace ThrowUpMod
         private static void FinishPlacement()
         {
             if (currentPreviewSurface == null) return;
+
+            // Re-enable colliders so player can hover and click it normally
+            var colliders = currentPreviewSurface.GetComponentsInChildren<Collider>();
+            foreach (var col in colliders)
+            {
+                col.enabled = true;
+            }
 
             MelonLogger.Msg($"Finishing placement for: {currentPreviewSurface.name}");
 
