@@ -7,6 +7,7 @@ using Il2CppScheduleOne.Core.Items.Framework;
 using Il2CppFishNet.Object;
 using Il2CppFishNet.Connection;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 [assembly: MelonInfo(typeof(ThrowUpMod.ThrowUp), "Throw Up", "1.0.0", "useridredacted")]
 [assembly: MelonGame("TVGS", "Schedule I")]
@@ -18,8 +19,6 @@ namespace ThrowUpMod
         private static int lastTeleportedIndex = 0;
         private static bool isHoldingPreview = false;
         private static SpraySurface currentPreviewSurface = null;
-
-        public static bool IsCanvasOpen = false;
 
         public override void OnInitializeMelon()
         {
@@ -213,24 +212,6 @@ namespace ThrowUpMod
         }
     }
 
-    [HarmonyPatch(typeof(SpraySurfaceInteraction), "Open")]
-    public static class Patch_OpenInteraction
-    {
-        public static void Postfix()
-        {
-            ThrowUp.IsCanvasOpen = true;
-        }
-    }
-
-    [HarmonyPatch(typeof(SpraySurfaceInteraction), "Close")]
-    public static class Patch_CloseInteraction
-    {
-        public static void Postfix()
-        {
-            ThrowUp.IsCanvasOpen = false;
-        }
-    }
-
     [HarmonyPatch(typeof(BaseItemInstance), "get_ID")]
     public static class Patch_get_ID
     {
@@ -238,9 +219,13 @@ namespace ThrowUpMod
         {
             try
             {
-                if (ThrowUp.IsCanvasOpen && __result == "spraypaint")
+                if (__result == "spraypaint")
                 {
-                    __result = "spraycan";
+                    var scene = SceneManager.GetActiveScene();
+                    if (scene != null && scene.name != null && scene.name != "Menu" && !scene.name.Contains("Load"))
+                    {
+                        __result = "spraycan";
+                    }
                 }
             }
             catch {}
