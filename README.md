@@ -23,6 +23,9 @@ This keeps all drawing visual rendering fully intact so you can paint your piece
 3. Drop the `ThrowUpMod.dll` into your game's `Mods` folder.
 4. Run the game.
 
+## Controls
+* **`G`** (with a spray can equipped): Teleport the closest spray paint canvas to the wall you are looking at and open the drawing menu.
+
 ## Building from Source
 You can compile this mod by running the helper build script `build.ps1` in PowerShell:
 ```powershell

@@ -33,7 +33,7 @@ namespace ThrowUpMod
         {
             try
             {
-                if (Input.GetKeyDown(KeyCode.V))
+                if (Input.GetKeyDown(KeyCode.G))
                 {
                     TryTeleportAndOpenCanvas();
                 }
