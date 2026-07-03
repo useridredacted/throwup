@@ -1,0 +1,12 @@
+# Mod binary and compiler artifacts
+*.dll
+*.pdb
+*.suo
+*.user
+bin/
+obj/
+
+# Large game dumps and dependencies
+/dump/
+/il2cppdumper/
+/roslyn/
