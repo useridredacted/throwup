@@ -33,6 +33,32 @@ namespace ThrowUpMod
             }
         }
 
+        public override void OnSceneWasLoaded(int buildIndex, string sceneName)
+        {
+            // Global Definition Spoofing to force game engine to recognize "Spray Paint" as a "Spray Can"
+            try
+            {
+                var definitions = Resources.FindObjectsOfTypeAll<BaseItemDefinition>();
+                int spoofCount = 0;
+                foreach (var def in definitions)
+                {
+                    if (def != null && (def.ID == "spraypaint" || def.Name.Contains("Spray Paint")))
+                    {
+                        def.ID = "spraycan";
+                        spoofCount++;
+                    }
+                }
+                if (spoofCount > 0)
+                {
+                    LoggerInstance.Msg($"Successfully spoofed {spoofCount} spraypaint definition(s) to spraycan globally!");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                LoggerInstance.Error($"Failed to spoof item definitions: {ex}");
+            }
+        }
+
         public override void OnUpdate()
         {
             try
@@ -152,21 +178,6 @@ namespace ThrowUpMod
             }
 
             MelonLogger.Msg($"Finishing placement for: {currentPreviewSurface.name}");
-
-            // Open drawing UI
-            var interaction = currentPreviewSurface.GetComponentInChildren<SpraySurfaceInteraction>();
-            if (interaction == null) interaction = currentPreviewSurface.GetComponentInParent<SpraySurfaceInteraction>();
-            
-            if (interaction != null)
-            {
-                var openMethod = typeof(SpraySurfaceInteraction).GetMethod("Open", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                if (openMethod != null)
-                {
-                    openMethod.Invoke(interaction, null);
-                    MelonLogger.Msg("Opened spray painting interface!");
-                }
-            }
-            
             currentPreviewSurface = null;
         }
 
