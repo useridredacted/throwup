@@ -19,6 +19,8 @@ namespace ThrowUpMod
         private static bool isHoldingPreview = false;
         private static SpraySurface currentPreviewSurface = null;
 
+        public static bool IsCanvasOpen = false;
+
         public override void OnInitializeMelon()
         {
             LoggerInstance.Msg("Throw Up Mod initializing...");
@@ -30,32 +32,6 @@ namespace ThrowUpMod
             catch (System.Exception ex)
             {
                 LoggerInstance.Error($"Failed to apply Harmony patches: {ex}");
-            }
-        }
-
-        public override void OnSceneWasLoaded(int buildIndex, string sceneName)
-        {
-            // Global Definition Spoofing to force game engine to recognize "Spray Paint" as a "Spray Can"
-            try
-            {
-                var definitions = Resources.FindObjectsOfTypeAll<BaseItemDefinition>();
-                int spoofCount = 0;
-                foreach (var def in definitions)
-                {
-                    if (def != null && (def.ID == "spraypaint" || def.Name.Contains("Spray Paint")))
-                    {
-                        def.ID = "spraycan";
-                        spoofCount++;
-                    }
-                }
-                if (spoofCount > 0)
-                {
-                    LoggerInstance.Msg($"Successfully spoofed {spoofCount} spraypaint definition(s) to spraycan globally!");
-                }
-            }
-            catch (System.Exception ex)
-            {
-                LoggerInstance.Error($"Failed to spoof item definitions: {ex}");
             }
         }
 
@@ -237,22 +213,34 @@ namespace ThrowUpMod
         }
     }
 
+    [HarmonyPatch(typeof(SpraySurfaceInteraction), "Open")]
+    public static class Patch_OpenInteraction
+    {
+        public static void Postfix()
+        {
+            ThrowUp.IsCanvasOpen = true;
+        }
+    }
+
+    [HarmonyPatch(typeof(SpraySurfaceInteraction), "Close")]
+    public static class Patch_CloseInteraction
+    {
+        public static void Postfix()
+        {
+            ThrowUp.IsCanvasOpen = false;
+        }
+    }
+
     [HarmonyPatch(typeof(BaseItemInstance), "get_ID")]
     public static class Patch_get_ID
     {
-        public static void Postfix(BaseItemInstance __instance, ref string __result)
+        public static void Postfix(ref string __result)
         {
             try
             {
-                if (__result == "spraypaint")
+                if (ThrowUp.IsCanvasOpen && __result == "spraypaint")
                 {
-                    if (PlayerInventory.InstanceExists && PlayerInventory.Instance != null && PlayerInventory.Instance.EquippedItem != null)
-                    {
-                        if (__instance == PlayerInventory.Instance.EquippedItem)
-                        {
-                            __result = "spraycan";
-                        }
-                    }
+                    __result = "spraycan";
                 }
             }
             catch {}
