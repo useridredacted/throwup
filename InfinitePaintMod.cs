@@ -2,6 +2,7 @@ using MelonLoader;
 using HarmonyLib;
 using Il2CppScheduleOne.Graffiti;
 using Il2CppScheduleOne.PlayerScripts;
+using Il2CppScheduleOne.ItemFramework;
 using Il2CppFishNet.Object;
 using Il2CppFishNet.Connection;
 using UnityEngine;
@@ -73,7 +74,7 @@ namespace ThrowUpMod
         {
             if (Camera.main == null) return;
 
-            // 1. Check if spray can is equipped
+            // 1. Check if spray can is equipped (game method or custom ID check)
             bool isEquipped = false;
             try
             {
@@ -84,6 +85,17 @@ namespace ThrowUpMod
                 }
             }
             catch {}
+
+            if (!isEquipped && PlayerInventory.Instance != null && PlayerInventory.Instance.EquippedItem != null)
+            {
+                string id = PlayerInventory.Instance.EquippedItem.ID.ToLower();
+                string name = PlayerInventory.Instance.EquippedItem.Name.ToLower();
+                MelonLogger.Msg($"Checking equipped item - ID: {id}, Name: {name}");
+                if (id.Contains("spray") || id.Contains("paint") || name.Contains("spray") || name.Contains("paint"))
+                {
+                    isEquipped = true;
+                }
+            }
 
             if (!isEquipped)
             {
