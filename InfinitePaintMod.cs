@@ -72,6 +72,31 @@ namespace ThrowUpMod
 
         private static void TryTeleportAndOpenCanvas()
         {
+            MelonLogger.Msg("G pressed! Checking state...");
+            try
+            {
+                bool hasInventory = PlayerInventory.InstanceExists;
+                MelonLogger.Msg($"PlayerInventory.InstanceExists: {hasInventory}");
+                if (hasInventory)
+                {
+                    var inv = PlayerInventory.Instance;
+                    MelonLogger.Msg($"PlayerInventory.Instance is null: {inv == null}");
+                    if (inv != null)
+                    {
+                        var item = inv.EquippedItem;
+                        MelonLogger.Msg($"EquippedItem is null: {item == null}");
+                        if (item != null)
+                        {
+                            MelonLogger.Msg($"EquippedItem ID: {item.ID}, Name: {item.Name}");
+                        }
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                MelonLogger.Error($"Error checking inventory state: {ex}");
+            }
+
             if (Camera.main == null) return;
 
             // 1. Check if spray can is equipped
@@ -85,6 +110,18 @@ namespace ThrowUpMod
                 }
             }
             catch {}
+
+            MelonLogger.Msg($"IsSprayCanEquipped reflection result: {isEquipped}");
+
+            if (!isEquipped && PlayerInventory.InstanceExists && PlayerInventory.Instance != null && PlayerInventory.Instance.EquippedItem != null)
+            {
+                string id = PlayerInventory.Instance.EquippedItem.ID.ToLower();
+                string name = PlayerInventory.Instance.EquippedItem.Name.ToLower();
+                if (id.Contains("spray") || id.Contains("paint") || name.Contains("spray") || name.Contains("paint") || id.Contains("spraycan"))
+                {
+                    isEquipped = true;
+                }
+            }
 
             if (!isEquipped)
             {
@@ -168,6 +205,27 @@ namespace ThrowUpMod
         }
     }
 
+    [HarmonyPatch(typeof(PlayerInventory), "get_EquippedItem")]
+    public static class Patch_get_EquippedItem
+    {
+        public static void Postfix(ref ItemInstance __result)
+        {
+            try
+            {
+                if (__result != null && __result.Definition != null)
+                {
+                    string id = __result.Definition.ID.ToLower();
+                    string name = __result.Name.ToLower();
+                    if (id.Contains("spray") || id.Contains("paint") || name.Contains("spray") || name.Contains("paint"))
+                    {
+                        __result.Definition.ID = "spraycan";
+                    }
+                }
+            }
+            catch {}
+        }
+    }
+
     [HarmonyPatch(typeof(SpraySurfaceInteraction), "IsSprayCanEquipped")]
     public static class Patch_IsSprayCanEquipped
     {
@@ -179,10 +237,10 @@ namespace ThrowUpMod
                 {
                     string id = PlayerInventory.Instance.EquippedItem.ID.ToLower();
                     string name = PlayerInventory.Instance.EquippedItem.Name.ToLower();
-                    if (id.Contains("spray") || id.Contains("paint") || name.Contains("spray") || name.Contains("paint"))
+                    if (id.Contains("spray") || id.Contains("paint") || name.Contains("spray") || name.Contains("paint") || id.Contains("spraycan"))
                     {
                         __result = true;
-                        return false; // Skip original method
+                        return false;
                     }
                 }
             }
