@@ -3,6 +3,7 @@ using HarmonyLib;
 using Il2CppScheduleOne.Graffiti;
 using Il2CppScheduleOne.PlayerScripts;
 using Il2CppScheduleOne.ItemFramework;
+using Il2CppScheduleOne.Core.Items.Framework;
 using Il2CppFishNet.Object;
 using Il2CppFishNet.Connection;
 using UnityEngine;
@@ -15,6 +16,8 @@ namespace ThrowUpMod
     public class ThrowUp : MelonMod
     {
         private static int lastTeleportedIndex = 0;
+        private static bool isHoldingPreview = false;
+        private static SpraySurface currentPreviewSurface = null;
 
         public override void OnInitializeMelon()
         {
@@ -30,16 +33,88 @@ namespace ThrowUpMod
             }
         }
 
+        public override void OnSceneWasLoaded(int buildIndex, string sceneName)
+        {
+            // Global Definition Spoofing to force game engine to recognize "Spray Paint" as a "Spray Can"
+            try
+            {
+                var definitions = Resources.FindObjectsOfTypeAll<BaseItemDefinition>();
+                int spoofCount = 0;
+                foreach (var def in definitions)
+                {
+                    if (def != null && (def.ID == "spraypaint" || def.Name.Contains("Spray Paint")))
+                    {
+                        def.ID = "spraycan";
+                        spoofCount++;
+                    }
+                }
+                if (spoofCount > 0)
+                {
+                    LoggerInstance.Msg($"Successfully spoofed {spoofCount} spraypaint definition(s) to spraycan globally!");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                LoggerInstance.Error($"Failed to spoof item definitions: {ex}");
+            }
+        }
+
         public override void OnUpdate()
         {
             try
             {
+                // 1. Remove Canvas Check
+                if (Input.GetKeyDown(KeyCode.Backspace) || Input.GetKeyDown(KeyCode.Delete))
+                {
+                    TryRemoveCanvas();
+                }
+
+                // 2. Hold-to-Preview Placement Check
                 if (Input.GetKeyDown(KeyCode.G))
                 {
-                    TryTeleportAndOpenCanvas();
+                    if (IsSprayItemEquipped())
+                    {
+                        isHoldingPreview = true;
+                        currentPreviewSurface = GetNextSpraySurface();
+                        if (currentPreviewSurface != null)
+                        {
+                            MelonLogger.Msg($"Started preview with SpraySurface: {currentPreviewSurface.name}");
+                        }
+                    }
+                    else
+                    {
+                        MelonLogger.Msg("Cannot place graffiti: Spray paint is not equipped.");
+                    }
+                }
+
+                if (isHoldingPreview)
+                {
+                    if (Input.GetKey(KeyCode.G))
+                    {
+                        UpdatePlacementPreview();
+                    }
+                    else
+                    {
+                        isHoldingPreview = false;
+                        FinishPlacement();
+                    }
                 }
             }
             catch {}
+        }
+
+        private static bool IsSprayItemEquipped()
+        {
+            if (PlayerInventory.InstanceExists && PlayerInventory.Instance != null && PlayerInventory.Instance.EquippedItem != null)
+            {
+                string id = PlayerInventory.Instance.EquippedItem.ID.ToLower();
+                string name = PlayerInventory.Instance.EquippedItem.Name.ToLower();
+                if (id.Contains("spray") || id.Contains("paint") || name.Contains("spray") || name.Contains("paint") || id.Contains("spraycan"))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private static SpraySurface GetNextSpraySurface()
@@ -70,103 +145,71 @@ namespace ThrowUpMod
             }
         }
 
-        private static void TryTeleportAndOpenCanvas()
+        private static void UpdatePlacementPreview()
         {
-            MelonLogger.Msg("G pressed! Checking state...");
-            try
+            if (currentPreviewSurface == null || Camera.main == null) return;
+
+            var surfaceGo = currentPreviewSurface.gameObject;
+            
+            // Temporarily disable the surface so we don't raycast hit ourselves
+            bool wasActive = surfaceGo.activeSelf;
+            surfaceGo.SetActive(false);
+
+            Ray ray = new Ray(Camera.main.transform.position, Camera.main.transform.forward);
+            RaycastHit hit;
+            int mask = ~LayerMask.GetMask("Player", "Ignore Raycast");
+            bool didHit = Physics.Raycast(ray, out hit, 10f, mask);
+
+            surfaceGo.SetActive(true);
+
+            if (didHit)
             {
-                bool hasInventory = PlayerInventory.InstanceExists;
-                MelonLogger.Msg($"PlayerInventory.InstanceExists: {hasInventory}");
-                if (hasInventory)
+                surfaceGo.transform.position = hit.point + hit.normal * 0.01f;
+                surfaceGo.transform.rotation = Quaternion.LookRotation(-hit.normal, Vector3.up);
+            }
+        }
+
+        private static void FinishPlacement()
+        {
+            if (currentPreviewSurface == null) return;
+
+            MelonLogger.Msg($"Finishing placement for: {currentPreviewSurface.name}");
+
+            // Open drawing UI
+            var interaction = currentPreviewSurface.GetComponentInChildren<SpraySurfaceInteraction>();
+            if (interaction == null) interaction = currentPreviewSurface.GetComponentInParent<SpraySurfaceInteraction>();
+            
+            if (interaction != null)
+            {
+                var openMethod = typeof(SpraySurfaceInteraction).GetMethod("Open", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                if (openMethod != null)
                 {
-                    var inv = PlayerInventory.Instance;
-                    MelonLogger.Msg($"PlayerInventory.Instance is null: {inv == null}");
-                    if (inv != null)
-                    {
-                        var item = inv.EquippedItem;
-                        MelonLogger.Msg($"EquippedItem is null: {item == null}");
-                        if (item != null)
-                        {
-                            MelonLogger.Msg($"EquippedItem ID: {item.ID}, Name: {item.Name}");
-                        }
-                    }
+                    openMethod.Invoke(interaction, null);
+                    MelonLogger.Msg("Opened spray painting interface!");
                 }
             }
-            catch (System.Exception ex)
-            {
-                MelonLogger.Error($"Error checking inventory state: {ex}");
-            }
+            
+            currentPreviewSurface = null;
+        }
 
+        private static void TryRemoveCanvas()
+        {
             if (Camera.main == null) return;
-
-            // 1. Check if spray can is equipped
-            bool isEquipped = false;
-            try
-            {
-                var method = typeof(SpraySurfaceInteraction).GetMethod("IsSprayCanEquipped", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
-                if (method != null)
-                {
-                    isEquipped = (bool)method.Invoke(null, null);
-                }
-            }
-            catch {}
-
-            MelonLogger.Msg($"IsSprayCanEquipped reflection result: {isEquipped}");
-
-            if (!isEquipped && PlayerInventory.InstanceExists && PlayerInventory.Instance != null && PlayerInventory.Instance.EquippedItem != null)
-            {
-                string id = PlayerInventory.Instance.EquippedItem.ID.ToLower();
-                string name = PlayerInventory.Instance.EquippedItem.Name.ToLower();
-                if (id.Contains("spray") || id.Contains("paint") || name.Contains("spray") || name.Contains("paint") || id.Contains("spraycan"))
-                {
-                    isEquipped = true;
-                }
-            }
-
-            if (!isEquipped)
-            {
-                MelonLogger.Msg("Cannot place graffiti: Spray can is not equipped.");
-                return;
-            }
-
-            // 2. Raycast from camera
             Ray ray = new Ray(Camera.main.transform.position, Camera.main.transform.forward);
             RaycastHit hit;
             int mask = ~LayerMask.GetMask("Player", "Ignore Raycast");
             if (Physics.Raycast(ray, out hit, 10f, mask))
             {
-                // 3. Get next spray surface
-                var surface = GetNextSpraySurface();
-                if (surface == null)
+                var surface = hit.collider.GetComponentInParent<SpraySurface>();
+                if (surface == null) surface = hit.collider.GetComponentInChildren<SpraySurface>();
+                if (surface == null) surface = hit.collider.GetComponent<SpraySurface>();
+
+                if (surface != null)
                 {
-                    MelonLogger.Msg("No active spray surfaces found in this scene to teleport.");
-                    return;
+                    surface.ClearDrawing();
+                    surface.transform.position = Vector3.down * 1000f;
+                    MelonLogger.Msg("Removed spray paint canvas successfully.");
                 }
-
-                // 4. Teleport surface
-                var surfaceGo = surface.gameObject;
-                surfaceGo.transform.position = hit.point + hit.normal * 0.01f;
-                surfaceGo.transform.rotation = Quaternion.LookRotation(-hit.normal, Vector3.up);
-
-                MelonLogger.Msg($"Teleported SpraySurface {surface.name} to target wall.");
-
-                // 5. Open interaction
-                var interaction = surface.GetComponentInChildren<SpraySurfaceInteraction>();
-                if (interaction == null) interaction = surface.GetComponentInParent<SpraySurfaceInteraction>();
-                
-                if (interaction != null)
-                {
-                    var openMethod = typeof(SpraySurfaceInteraction).GetMethod("Open", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                    if (openMethod != null)
-                    {
-                        openMethod.Invoke(interaction, null);
-                        MelonLogger.Msg("Opened spray painting interface!");
-                    }
-                }
-            }
-            else
-            {
-                MelonLogger.Msg("No wall in range (max distance 10m).");
             }
         }
     }

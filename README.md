@@ -10,6 +10,7 @@ The mod uses **MelonLoader** and **Harmony** to hook into the game's drawing log
 Rather than trying to freeze the pixel count (which breaks the rendering of paint on the canvas), the mod hooks the update loop of `SpraySurfaceInteraction` and:
 1. Dynamically increases the canvas limit multiplier (`PaintedPixelLimitMultiplier`) to `80000f`. This effectively increases the maximum paint limit from 25,000 pixels to **2,000,000,000 pixels** (virtually infinite).
 2. Forces the drawing state (`_allowDraw`) to `true` during the update cycles so that drawing is never blocked.
+3. Globally spoofs the `BaseItemDefinition` ID of `"spraypaint"` to `"spraycan"` in memory so the game's native check recognizes "Spray Paint" as a valid spray can tool.
 
 This keeps all drawing visual rendering fully intact so you can paint your pieces normally, while making the paint limit practically infinite and naturally keeping the UI indicator at 100%.
 
@@ -24,7 +25,9 @@ This keeps all drawing visual rendering fully intact so you can paint your piece
 4. Run the game.
 
 ## Controls
-* **`G`** (with a spray can equipped): Teleport the closest spray paint canvas to the wall you are looking at and open the drawing menu.
+* **Hold `G`** (with spray paint equipped): Raycast forward from your view and slide the preview canvas along the wall surface.
+* **Release `G`**: Lock the canvas at the current preview location and open the drawing interface.
+* **`Backspace`** or **`Delete`** (when looking at a placed canvas): Clear the drawing and remove (hide) the canvas.
 
 ## Building from Source
 You can compile this mod by running the helper build script `build.ps1` in PowerShell:
