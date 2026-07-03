@@ -33,32 +33,6 @@ namespace ThrowUpMod
             }
         }
 
-        public override void OnSceneWasLoaded(int buildIndex, string sceneName)
-        {
-            // Global Definition Spoofing to force game engine to recognize "Spray Paint" as a "Spray Can"
-            try
-            {
-                var definitions = Resources.FindObjectsOfTypeAll<BaseItemDefinition>();
-                int spoofCount = 0;
-                foreach (var def in definitions)
-                {
-                    if (def != null && (def.ID == "spraypaint" || def.Name.Contains("Spray Paint")))
-                    {
-                        def.ID = "spraycan";
-                        spoofCount++;
-                    }
-                }
-                if (spoofCount > 0)
-                {
-                    LoggerInstance.Msg($"Successfully spoofed {spoofCount} spraypaint definition(s) to spraycan globally!");
-                }
-            }
-            catch (System.Exception ex)
-            {
-                LoggerInstance.Error($"Failed to spoof item definitions: {ex}");
-            }
-        }
-
         public override void OnUpdate()
         {
             try
@@ -252,20 +226,21 @@ namespace ThrowUpMod
         }
     }
 
-    [HarmonyPatch(typeof(PlayerInventory), "get_EquippedItem")]
-    public static class Patch_get_EquippedItem
+    [HarmonyPatch(typeof(BaseItemInstance), "get_ID")]
+    public static class Patch_get_ID
     {
-        public static void Postfix(ref ItemInstance __result)
+        public static void Postfix(BaseItemInstance __instance, ref string __result)
         {
             try
             {
-                if (__result != null && __result.Definition != null)
+                if (__result == "spraypaint")
                 {
-                    string id = __result.Definition.ID.ToLower();
-                    string name = __result.Name.ToLower();
-                    if (id.Contains("spray") || id.Contains("paint") || name.Contains("spray") || name.Contains("paint"))
+                    if (PlayerInventory.InstanceExists && PlayerInventory.Instance != null && PlayerInventory.Instance.EquippedItem != null)
                     {
-                        __result.Definition.ID = "spraycan";
+                        if (__instance == PlayerInventory.Instance.EquippedItem)
+                        {
+                            __result = "spraycan";
+                        }
                     }
                 }
             }
