@@ -7,7 +7,6 @@ using Il2CppScheduleOne.Core.Items.Framework;
 using Il2CppFishNet.Object;
 using Il2CppFishNet.Connection;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 [assembly: MelonInfo(typeof(ThrowUpMod.ThrowUp), "Throw Up", "1.0.0", "useridredacted")]
 [assembly: MelonGame("TVGS", "Schedule I")]
@@ -19,6 +18,8 @@ namespace ThrowUpMod
         private static int lastTeleportedIndex = 0;
         private static bool isHoldingPreview = false;
         private static SpraySurface currentPreviewSurface = null;
+
+        public static string CurrentSceneName = "";
 
         public override void OnInitializeMelon()
         {
@@ -32,6 +33,12 @@ namespace ThrowUpMod
             {
                 LoggerInstance.Error($"Failed to apply Harmony patches: {ex}");
             }
+        }
+
+        public override void OnSceneWasLoaded(int buildIndex, string sceneName)
+        {
+            CurrentSceneName = sceneName;
+            LoggerInstance.Msg($"Scene loaded in mod: {sceneName}");
         }
 
         public override void OnUpdate()
@@ -221,8 +228,8 @@ namespace ThrowUpMod
             {
                 if (__result == "spraypaint")
                 {
-                    var scene = SceneManager.GetActiveScene();
-                    if (scene != null && scene.name != null && scene.name != "Menu" && !scene.name.Contains("Load"))
+                    string scene = ThrowUp.CurrentSceneName;
+                    if (scene != null && scene != "Menu" && !scene.Contains("Load") && scene != "")
                     {
                         __result = "spraycan";
                     }
