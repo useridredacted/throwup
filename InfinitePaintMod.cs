@@ -338,7 +338,7 @@ namespace ThrowUpMod
                 var boxCol = FindMainCanvasCollider(surface);
                 if (boxCol != null)
                 {
-                    boxCol.size = new UnityEngine.Vector3(targetWidth * PIXEL_SIZE, targetHeight * PIXEL_SIZE, 0.75f);
+                    boxCol.size = new UnityEngine.Vector3(targetWidth * PIXEL_SIZE, targetHeight * PIXEL_SIZE, 0.01f);
                     boxCol.center = UnityEngine.Vector3.zero;
                 }
 
