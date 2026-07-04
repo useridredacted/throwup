@@ -28,18 +28,30 @@ $refFiles += "$gameDir\MelonLoader\Il2CppAssemblies\UnityEngine.InputLegacyModul
 $refFiles += "$gameDir\MelonLoader\Il2CppAssemblies\Il2CppFishNet.Runtime.dll"
 $refFiles += "$gameDir\MelonLoader\Il2CppAssemblies\Il2Cppmscorlib.dll"
 $refFiles += "$gameDir\MelonLoader\Il2CppAssemblies\Il2CppScheduleOne.Core.dll"
+$refFiles += "$gameDir\MelonLoader\Il2CppAssemblies\Unity.RenderPipelines.Universal.Runtime.dll"
+$refFiles += "$gameDir\MelonLoader\Il2CppAssemblies\Unity.RenderPipelines.Core.Runtime.dll"
+$refFiles += "$gameDir\MelonLoader\Il2CppAssemblies\UnityEngine.UI.dll"
+$refFiles += "$gameDir\MelonLoader\Il2CppAssemblies\Unity.InputSystem.dll"
 
 $refArgs = $refFiles | ForEach-Object { "/r:`"$_`"" }
 
 Write-Host "Compiling InfinitePaintMod.cs..."
 if ($csc -eq "csc") {
-    csc /target:library /out:ThrowUpMod.dll $refArgs InfinitePaintMod.cs
+    csc /target:library /unsafe /out:ThrowUpMod.dll $refArgs InfinitePaintMod.cs
 } else {
-    dotnet $csc /target:library /out:ThrowUpMod.dll $refArgs InfinitePaintMod.cs
+    dotnet $csc /target:library /unsafe /out:ThrowUpMod.dll $refArgs InfinitePaintMod.cs
 }
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "Build Succeeded! Output: ThrowUpMod.dll" -ForegroundColor Green
+    $dest = "$gameDir\Mods\ThrowUpMod.dll"
+    if (Test-Path "$gameDir\Mods") {
+        Copy-Item -Path .\ThrowUpMod.dll -Destination $dest -Force
+        Write-Host "Automatically copied ThrowUpMod.dll to $dest" -ForegroundColor Cyan
+    } else {
+        Write-Warning "Mods directory not found at $gameDir\Mods, DLL was not copied."
+    }
 } else {
     Write-Host "Build Failed!" -ForegroundColor Red
 }
+
