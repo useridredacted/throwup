@@ -34,6 +34,7 @@ namespace ThrowUpMod
 
         public static System.Collections.Generic.Dictionary<SpraySurface, float> canvasPixelOffsetX = new System.Collections.Generic.Dictionary<SpraySurface, float>();
         public static System.Collections.Generic.Dictionary<SpraySurface, float> canvasPixelOffsetY = new System.Collections.Generic.Dictionary<SpraySurface, float>();
+        private static bool hasRestoredForCurrentScene = false;
 
         public static float GetPixelOffsetX(SpraySurface surface)
         {
@@ -359,6 +360,67 @@ namespace ThrowUpMod
             }
         }
 
+        public static void EnsureCanvasIsHuge(SpraySurface surface)
+        {
+            if (surface == null || surface.Width >= 2048) return;
+            try
+            {
+                int targetWidth = 2048;
+                int targetHeight = 2048;
+
+                Il2CppSystem.Collections.Generic.List<SprayStroke> strokesToPreserve = null;
+                var fieldInfo = typeof(SpraySurface).GetField("cachedDrawing", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
+                if (fieldInfo != null)
+                {
+                    var drawing = fieldInfo.GetValue(surface) as Drawing;
+                    if (drawing != null)
+                    {
+                        strokesToPreserve = drawing.GetStrokes();
+                    }
+                }
+
+                ushort offsetX = (ushort)((targetWidth - surface.Width) / 2);
+                ushort offsetY = (ushort)((targetHeight - surface.Height) / 2);
+
+                surface.Width = targetWidth;
+                surface.Height = targetHeight;
+
+                var newDrawing = new Il2CppScheduleOne.Graffiti.Drawing(targetWidth, targetHeight, true);
+                if (strokesToPreserve != null && strokesToPreserve.Count > 0)
+                {
+                    var shifted = SprayStroke.CopyAndShiftStrokes(strokesToPreserve, new UShort2(offsetX, offsetY));
+                    newDrawing.AddStrokes(shifted);
+                }
+
+                SetDrawingOnSurface(surface, newDrawing);
+
+                CallResizeProjector(surface);
+                if (surface.Projector != null)
+                {
+                    surface.Projector.transform.localPosition = new UnityEngine.Vector3(0f, 0f, surface.Projector.transform.localPosition.z);
+                }
+
+                var boxCol = FindMainCanvasCollider(surface);
+                if (boxCol != null)
+                {
+                    boxCol.size = new UnityEngine.Vector3(targetWidth * PIXEL_SIZE, targetHeight * PIXEL_SIZE, 0.01f);
+                    boxCol.center = UnityEngine.Vector3.zero;
+                }
+
+                if (surface.BottomLeftPoint != null)
+                {
+                    surface.BottomLeftPoint.localPosition = new UnityEngine.Vector3(-targetWidth * PIXEL_SIZE / 2f, -targetHeight * PIXEL_SIZE / 2f, 0f);
+                }
+
+                RepositionCanvas(surface, surface.transform.position, surface.transform.rotation);
+                MelonLogger.Msg($"[EnsureHuge] Safely expanded canvas {surface.name} to {targetWidth}x{targetHeight} (preserved {(strokesToPreserve != null ? strokesToPreserve.Count : 0)} strokes).");
+            }
+            catch (System.Exception ex)
+            {
+                MelonLogger.Error($"Error ensuring canvas is huge: {ex}");
+            }
+        }
+
         private static void CallInteractionResizeCanvas(SpraySurface surface)
         {
             try
@@ -518,10 +580,25 @@ namespace ThrowUpMod
             }
         }
 
+        public override void OnSceneWasLoaded(int buildIndex, string sceneName)
+        {
+            hasRestoredForCurrentScene = false;
+        }
+
         public override void OnUpdate()
         {
             try
             {
+                if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name != "MainMenu" &&
+                    UnityEngine.SceneManagement.SceneManager.GetActiveScene().name != "LoadingScene" &&
+                    UnityEngine.SceneManagement.SceneManager.GetActiveScene().name != "Intro")
+                {
+                    if (!hasRestoredForCurrentScene)
+                    {
+                        RestoreCanvasPositions();
+                        hasRestoredForCurrentScene = true;
+                    }
+                }
                 // 1. Remove Canvas Check
                 if (Input.GetKeyDown(KeyCode.Backspace) || Input.GetKeyDown(KeyCode.Delete))
                 {
@@ -901,11 +978,56 @@ namespace ThrowUpMod
                 if (surfaces == null || surfaces.Count == 0) return null;
 
                 var activeSurfaces = new System.Collections.Generic.List<SpraySurface>();
+                var placedGuids = new System.Collections.Generic.HashSet<string>();
+                try
+                {
+                    string path = "UserData/PlacedCanvases.json";
+                    if (System.IO.File.Exists(path))
+                    {
+                        string json = System.IO.File.ReadAllText(path);
+                        var data = DeserializeCustomJson(json);
+                        if (data != null && data.canvases != null)
+                        {
+                            foreach (var c in data.canvases)
+                            {
+                                placedGuids.Add(c.guid);
+                            }
+                        }
+                    }
+                }
+                catch {}
+
                 foreach (var s in surfaces)
                 {
                     if (s.gameObject.activeInHierarchy && s.gameObject.scene.name != null)
                     {
+                        var ws = s.TryCast<WorldSpraySurface>();
+                        if (ws != null)
+                        {
+                            string guidStr = ws.GUID.ToString();
+                            if (placedGuids.Contains(guidStr)) continue;
+                        }
+
+                        bool hasDrawings = false;
+                        try
+                        {
+                            hasDrawings = (s.DrawingStrokeCount > 0 || s.DrawingPaintedPixelCount > 0);
+                        }
+                        catch {}
+                        if (hasDrawings) continue;
+
                         activeSurfaces.Add(s);
+                    }
+                }
+
+                if (activeSurfaces.Count == 0)
+                {
+                    foreach (var s in surfaces)
+                    {
+                        if (s.gameObject.activeInHierarchy && s.gameObject.scene.name != null)
+                        {
+                            activeSurfaces.Add(s);
+                        }
                     }
                 }
 
@@ -1433,6 +1555,15 @@ namespace ThrowUpMod
             }
 
             HideOverlappingGraffitiMeshes(currentPreviewSurface);
+            try
+            {
+                var worldSurf = currentPreviewSurface.TryCast<WorldSpraySurface>();
+                if (worldSurf != null)
+                {
+                    SaveCanvasPosition(worldSurf);
+                }
+            }
+            catch {}
             currentPreviewSurface = null;
         }
 
@@ -1465,10 +1596,235 @@ namespace ThrowUpMod
                         hiddenRenderersMap.Remove(surface);
                     }
                     surface.ClearDrawing();
+                    try
+                    {
+                        var worldSurf = surface.TryCast<WorldSpraySurface>();
+                        if (worldSurf != null)
+                        {
+                            RemoveCanvasPosition(worldSurf.GUID.ToString());
+                        }
+                    }
+                    catch {}
                     RepositionCanvas(surface, Vector3.down * 1000f, Quaternion.identity);
                     MelonLogger.Msg($"Removed spray paint canvas successfully.");
                 }
             }
+        }
+
+        private static void SaveCanvasPosition(WorldSpraySurface surface)
+        {
+            try
+            {
+                string path = "UserData/PlacedCanvases.json";
+                var data = new SaveCanvasData();
+                if (System.IO.File.Exists(path))
+                {
+                    string json = System.IO.File.ReadAllText(path);
+                    data = DeserializeCustomJson(json) ?? new SaveCanvasData();
+                }
+
+                string guidStr = surface.GUID.ToString();
+
+                CanvasTransformData toRemove = null;
+                foreach (var c in data.canvases)
+                {
+                    if (c.guid == guidStr)
+                    {
+                        toRemove = c;
+                        break;
+                    }
+                }
+                if (toRemove != null)
+                {
+                    data.canvases.Remove(toRemove);
+                }
+
+                var entry = new CanvasTransformData();
+                entry.guid = guidStr;
+                entry.px = surface.transform.position.x;
+                entry.py = surface.transform.position.y;
+                entry.pz = surface.transform.position.z;
+                entry.rx = surface.transform.rotation.x;
+                entry.ry = surface.transform.rotation.y;
+                entry.rz = surface.transform.rotation.z;
+                entry.rw = surface.transform.rotation.w;
+                data.canvases.Add(entry);
+
+                string newJson = SerializeCustomJson(data);
+                System.IO.File.WriteAllText(path, newJson);
+                MelonLogger.Msg($"[Save/Load] Saved canvas position for GUID: {guidStr}");
+            }
+            catch (System.Exception ex)
+            {
+                MelonLogger.Error($"Error saving canvas position: {ex}");
+            }
+        }
+
+        private static void RemoveCanvasPosition(string guidStr)
+        {
+            try
+            {
+                string path = "UserData/PlacedCanvases.json";
+                if (!System.IO.File.Exists(path)) return;
+
+                string json = System.IO.File.ReadAllText(path);
+                var data = DeserializeCustomJson(json);
+                if (data == null || data.canvases == null) return;
+
+                CanvasTransformData toRemove = null;
+                foreach (var c in data.canvases)
+                {
+                    if (c.guid == guidStr)
+                    {
+                        toRemove = c;
+                        break;
+                    }
+                }
+                if (toRemove != null)
+                {
+                    data.canvases.Remove(toRemove);
+                }
+
+                string newJson = SerializeCustomJson(data);
+                System.IO.File.WriteAllText(path, newJson);
+                MelonLogger.Msg($"[Save/Load] Removed canvas position for GUID: {guidStr}");
+            }
+            catch (System.Exception ex)
+            {
+                MelonLogger.Error($"Error removing canvas position: {ex}");
+            }
+        }
+
+        public static void RestoreCanvasPositions()
+        {
+            try
+            {
+                string path = "UserData/PlacedCanvases.json";
+                if (!System.IO.File.Exists(path)) return;
+
+                string json = System.IO.File.ReadAllText(path);
+                var data = DeserializeCustomJson(json);
+                if (data == null || data.canvases == null) return;
+
+                var surfaces = Resources.FindObjectsOfTypeAll<WorldSpraySurface>();
+                if (surfaces == null) return;
+
+                int count = 0;
+                foreach (var tData in data.canvases)
+                {
+                    foreach (var s in surfaces)
+                    {
+                        if (s != null && s.GUID.ToString() == tData.guid)
+                        {
+                            s.transform.position = new Vector3(tData.px, tData.py, tData.pz);
+                            s.transform.rotation = new Quaternion(tData.rx, tData.ry, tData.rz, tData.rw);
+
+                            if (s.Projector != null)
+                            {
+                                s.Projector.transform.localPosition = new Vector3(0f, 0f, s.Projector.transform.localPosition.z);
+                            }
+                            count++;
+                            break;
+                        }
+                    }
+                }
+                MelonLogger.Msg($"[Save/Load] Restored {count} canvas positions.");
+            }
+            catch (System.Exception ex)
+            {
+                MelonLogger.Error($"Error restoring canvas positions: {ex}");
+            }
+        }
+
+        private static string SerializeCustomJson(SaveCanvasData data)
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("{");
+            sb.AppendLine("  \"canvases\": [");
+            for (int i = 0; i < data.canvases.Count; i++)
+            {
+                var c = data.canvases[i];
+                sb.AppendLine("    {");
+                sb.AppendLine($"      \"guid\": \"{c.guid}\",");
+                sb.AppendLine($"      \"px\": {c.px.ToString(System.Globalization.CultureInfo.InvariantCulture)},");
+                sb.AppendLine($"      \"py\": {c.py.ToString(System.Globalization.CultureInfo.InvariantCulture)},");
+                sb.AppendLine($"      \"pz\": {c.pz.ToString(System.Globalization.CultureInfo.InvariantCulture)},");
+                sb.AppendLine($"      \"rx\": {c.rx.ToString(System.Globalization.CultureInfo.InvariantCulture)},");
+                sb.AppendLine($"      \"ry\": {c.ry.ToString(System.Globalization.CultureInfo.InvariantCulture)},");
+                sb.AppendLine($"      \"rz\": {c.rz.ToString(System.Globalization.CultureInfo.InvariantCulture)},");
+                sb.AppendLine($"      \"rw\": {c.rw.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+                sb.Append("    }" + (i < data.canvases.Count - 1 ? "," : ""));
+            }
+            sb.AppendLine("  ]");
+            sb.AppendLine("}");
+            return sb.ToString();
+        }
+
+        private static SaveCanvasData DeserializeCustomJson(string json)
+        {
+            var data = new SaveCanvasData();
+            try
+            {
+                string[] parts = json.Split(new string[] { "}" }, System.StringSplitOptions.RemoveEmptyEntries);
+                foreach (var part in parts)
+                {
+                    if (!part.Contains("\"guid\"")) continue;
+                    var entry = new CanvasTransformData();
+                    entry.guid = ExtractJsonField(part, "guid");
+                    entry.px = ParseFloat(ExtractJsonField(part, "px"));
+                    entry.py = ParseFloat(ExtractJsonField(part, "py"));
+                    entry.pz = ParseFloat(ExtractJsonField(part, "pz"));
+                    entry.rx = ParseFloat(ExtractJsonField(part, "rx"));
+                    entry.ry = ParseFloat(ExtractJsonField(part, "ry"));
+                    entry.rz = ParseFloat(ExtractJsonField(part, "rz"));
+                    entry.rw = ParseFloat(ExtractJsonField(part, "rw"));
+                    data.canvases.Add(entry);
+                }
+            }
+            catch (System.Exception ex)
+            {
+                MelonLogger.Error($"Error deserializing custom JSON: {ex}");
+            }
+            return data;
+        }
+
+        private static string ExtractJsonField(string json, string field)
+        {
+            string key = "\"" + field + "\"";
+            int idx = json.IndexOf(key);
+            if (idx == -1) return "";
+            int start = json.IndexOf(":", idx);
+            if (start == -1) return "";
+            start++;
+            int end = json.IndexOf(",", start);
+            if (end == -1) end = json.IndexOf("\n", start);
+            if (end == -1) end = json.Length;
+
+            string val = json.Substring(start, end - start).Trim().Trim('"');
+            return val;
+        }
+
+        private static float ParseFloat(string s)
+        {
+            if (float.TryParse(s, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out float val))
+            {
+                return val;
+            }
+            return 0f;
+        }
+
+        [System.Serializable]
+        public class CanvasTransformData
+        {
+            public string guid;
+            public float px, py, pz;
+            public float rx, ry, rz, rw;
+        }
+
+        [System.Serializable]
+        public class SaveCanvasData
+        {
+            public System.Collections.Generic.List<CanvasTransformData> canvases = new System.Collections.Generic.List<CanvasTransformData>();
         }
     }
 
@@ -1508,24 +1864,7 @@ namespace ThrowUpMod
                             enteredPaintingThisFrame = true;
                             MelonLogger.Msg($"Entered painting. Stored initial camera position: {initialCameraPos}");
 
-                            if (__instance.SpraySurface != null)
-                            {
-                                var surface = __instance.SpraySurface;
-                                if (surface.Width < 2048 || surface.Height < 2048)
-                                {
-                                    bool isUnpainted = true;
-                                    try
-                                    {
-                                        isUnpainted = (surface.DrawingStrokeCount == 0 && surface.DrawingPaintedPixelCount == 0);
-                                    }
-                                    catch { isUnpainted = true; }
-
-                                    if (isUnpainted)
-                                    {
-                                        ThrowUp.AutoResizeCanvasToHuge(surface);
-                                    }
-                                }
-                            }
+                                ThrowUp.EnsureCanvasIsHuge(__instance.SpraySurface);
                         }
 
                         float horiz = 0f;
@@ -1962,6 +2301,77 @@ namespace ThrowUpMod
                 MelonLogger.Error($"Error in GetCursorPositionOnSurface prefix patch: {ex}");
             }
             return true; // Fallback to native mapping if anything errors or doesn't hit
+        }
+    }
+
+    [HarmonyPatch(typeof(Il2CppScheduleOne.Persistence.Loaders.GraffitiLoader), "LoadSpraySurface")]
+    public static class Patch_GraffitiLoader_LoadSpraySurface
+    {
+        public static void Prefix(Il2CppScheduleOne.Persistence.Loaders.GraffitiLoader __instance, Il2CppScheduleOne.Persistence.Datas.WorldSpraySurfaceData surfaceData)
+        {
+            try
+            {
+                if (surfaceData == null || string.IsNullOrEmpty(surfaceData.GUID)) return;
+
+                ThrowUp.RestoreCanvasPositions();
+
+                var surfaces = Resources.FindObjectsOfTypeAll<WorldSpraySurface>();
+                if (surfaces == null) return;
+
+                foreach (var s in surfaces)
+                {
+                    if (s != null && s.GUID.ToString() == surfaceData.GUID)
+                    {
+                        ThrowUp.EnsureCanvasIsHuge(s);
+                        break;
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                MelonLogger.Error($"Error in LoadSpraySurface prefix patch: {ex}");
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(SpraySurface), "LoadSerializedDrawing")]
+    public static class Patch_SpraySurface_LoadSerializedDrawing
+    {
+        public static void Prefix(SpraySurface __instance, ref SerializedGraffitiDrawing serializedDrawing)
+        {
+            try
+            {
+                if (serializedDrawing == null) return;
+
+                int targetWidth = 2048;
+                int targetHeight = 2048;
+
+                if (serializedDrawing.Width < targetWidth || serializedDrawing.Height < targetHeight)
+                {
+                    ushort offsetX = (ushort)((targetWidth - serializedDrawing.Width) / 2);
+                    ushort offsetY = (ushort)((targetHeight - serializedDrawing.Height) / 2);
+
+                    var oldStrokes = serializedDrawing.Strokes;
+                    if (oldStrokes != null && oldStrokes.Count > 0)
+                    {
+                        var shiftedStrokes = SprayStroke.CopyAndShiftStrokes(oldStrokes, new UShort2(offsetX, offsetY));
+                        
+                        var newDrawing = ScriptableObject.CreateInstance(Il2CppInterop.Runtime.Il2CppType.Of<SerializedGraffitiDrawing>()).TryCast<SerializedGraffitiDrawing>();
+                        newDrawing.Width = targetWidth;
+                        newDrawing.Height = targetHeight;
+                        newDrawing.DrawingName = serializedDrawing.DrawingName;
+                        newDrawing.SetStrokes(shiftedStrokes);
+
+                        serializedDrawing = newDrawing;
+                    }
+
+                    ThrowUp.EnsureCanvasIsHuge(__instance);
+                }
+            }
+            catch (System.Exception ex)
+            {
+                MelonLogger.Error($"Error in LoadSerializedDrawing prefix patch: {ex}");
+            }
         }
     }
 }
