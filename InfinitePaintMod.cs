@@ -4,6 +4,7 @@ using Il2CppScheduleOne.Graffiti;
 using Il2CppScheduleOne.PlayerScripts;
 using Il2CppScheduleOne.ItemFramework;
 using Il2CppScheduleOne.Core.Items.Framework;
+using Il2CppScheduleOne.UI.Shop;
 using Il2CppFishNet.Object;
 using Il2CppFishNet.Connection;
 using UnityEngine;
@@ -2371,6 +2372,45 @@ namespace ThrowUpMod
             catch (System.Exception ex)
             {
                 MelonLogger.Error($"Error in LoadSerializedDrawing prefix patch: {ex}");
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(ShopListing), "Initialize")]
+    public static class Patch_ShopListing_Initialize
+    {
+        public static void Postfix(ShopListing __instance)
+        {
+            try
+            {
+                if (__instance == null || __instance.Pointer == System.IntPtr.Zero) return;
+                if (__instance.Item == null || __instance.Item.Pointer == System.IntPtr.Zero) return;
+
+                string id = __instance.Item.ID;
+                string name = __instance.Item.Name;
+                if (id == null || name == null) return;
+
+                id = id.ToLower();
+                name = name.ToLower();
+
+                if (id.Contains("spray") || id.Contains("paint") || name.Contains("spray") || name.Contains("paint") || id.Contains("spraycan"))
+                {
+                    __instance.LimitedStock = false;
+                    __instance.TieStockToNumberVariable = false;
+                    __instance.DefaultStock = 999;
+                    
+                    try
+                    {
+                        __instance.SetStock(999, false);
+                    }
+                    catch {}
+
+                    MelonLogger.Msg($"[InfinitePaintMod] Set LimitedStock = false and DefaultStock = 999 for shop listing: {name} ({id})");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                MelonLogger.Error($"Error in Patch_ShopListing_Initialize: {ex}");
             }
         }
     }
