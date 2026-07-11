@@ -603,7 +603,7 @@ namespace ThrowUpMod
                 // 1. Remove Canvas Check
                 if (Input.GetKeyDown(KeyCode.Backspace) || Input.GetKeyDown(KeyCode.Delete))
                 {
-                    TryRemoveCanvas();
+                    TryRemoveCanvasBetter();
                 }
 
                 // 2. Hold-to-Preview Placement Check
@@ -1609,6 +1609,111 @@ namespace ThrowUpMod
                     RepositionCanvas(surface, Vector3.down * 1000f, Quaternion.identity);
                     MelonLogger.Msg($"Removed spray paint canvas successfully.");
                 }
+            }
+        }
+
+        private static void TryRemoveCanvasBetter()
+        {
+            try
+            {
+                var cam = GetMainCamera();
+                if (cam == null) return;
+
+                UnityEngine.Vector3 rayOrigin = cam.transform.position;
+                UnityEngine.Vector3 rayDir = cam.transform.forward;
+
+                var surfaces = Resources.FindObjectsOfTypeAll<SpraySurface>();
+                if (surfaces == null || surfaces.Count == 0) return;
+
+                SpraySurface bestTarget = null;
+                float bestScore = float.MaxValue;
+
+                foreach (var s in surfaces)
+                {
+                    if (s == null || !s.gameObject.activeInHierarchy) continue;
+                    if (s.gameObject.transform.position.y < -500f) continue;
+
+                    UnityEngine.Vector3 canvasPos = s.transform.position;
+                    UnityEngine.Vector3 toCanvas = canvasPos - rayOrigin;
+                    float distance = toCanvas.magnitude;
+
+                    if (distance > 15f) continue;
+
+                    UnityEngine.Vector3 dirToCanvas = toCanvas / distance;
+                    float dot = UnityEngine.Vector3.Dot(rayDir, dirToCanvas);
+
+                    if (dot < 0.5f) continue;
+
+                    UnityEngine.Vector3 planeNormal = s.transform.forward;
+                    float dotNormal = UnityEngine.Vector3.Dot(rayDir, planeNormal);
+
+                    bool isLookingDirectlyAtCanvas = false;
+                    if (UnityEngine.Mathf.Abs(dotNormal) > 0.0001f)
+                    {
+                        float t = UnityEngine.Vector3.Dot(canvasPos - rayOrigin, planeNormal) / dotNormal;
+                        if (t >= 0f && t <= 15f)
+                        {
+                            UnityEngine.Vector3 hitPoint = rayOrigin + rayDir * t;
+                            UnityEngine.Vector3 localHit = s.transform.InverseTransformPoint(hitPoint);
+
+                            float w_m = s.Width * PIXEL_SIZE / 2f;
+                            float h_m = s.Height * PIXEL_SIZE / 2f;
+
+                            if (localHit.x >= -w_m - 0.2f && localHit.x <= w_m + 0.2f &&
+                                localHit.y >= -h_m - 0.2f && localHit.y <= h_m + 0.2f)
+                            {
+                                isLookingDirectlyAtCanvas = true;
+                            }
+                        }
+                    }
+
+                    float angleDiff = 1f - dot;
+                    float score = distance * angleDiff;
+
+                    if (isLookingDirectlyAtCanvas)
+                    {
+                        score = -1000f + distance;
+                    }
+
+                    if (score < bestScore)
+                    {
+                        bestScore = score;
+                        bestTarget = s;
+                    }
+                }
+
+                if (bestTarget != null)
+                {
+                    MelonLogger.Msg($"[Better Cleanup] Target canvas identified: {bestTarget.name} at distance {UnityEngine.Vector3.Distance(bestTarget.transform.position, rayOrigin):F2}m.");
+                    
+                    if (hiddenRenderersMap.TryGetValue(bestTarget, out var list))
+                    {
+                        foreach (var r in list)
+                        {
+                            if (r != null) r.enabled = true;
+                        }
+                        hiddenRenderersMap.Remove(bestTarget);
+                    }
+
+                    bestTarget.ClearDrawing();
+
+                    try
+                    {
+                        var worldSurf = bestTarget.TryCast<WorldSpraySurface>();
+                        if (worldSurf != null)
+                        {
+                            RemoveCanvasPosition(worldSurf.GUID.ToString());
+                        }
+                    }
+                    catch {}
+
+                    RepositionCanvas(bestTarget, UnityEngine.Vector3.down * 1000f, UnityEngine.Quaternion.identity);
+                    MelonLogger.Msg($"[Better Cleanup] Removed spray paint canvas successfully.");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                MelonLogger.Error($"Error in TryRemoveCanvasBetter: {ex}");
             }
         }
 
