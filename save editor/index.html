@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schedule I - Save Editor</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo-area">
+                <div class="logo-spray"></div>
+                <h1>SCHEDULE I</h1>
+                <span class="logo-badge">SAVE EDITOR</span>
+            </div>
+            
+            <div class="slot-section">
+                <h2>SAVE SLOTS</h2>
+                <div id="slots-list" class="slots-list">
+                    <!-- Loaded dynamically -->
+                    <div class="loading-slots">Scanning for saves...</div>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="status-indicator">
+                    <span class="status-dot online"></span>
+                    <span id="connection-status">Local Server Connected</span>
+                </div>
+                <div class="path-display" title="Default Steam Save Directory">
+                    <svg viewBox="0 0 24 24" class="icon"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
+                    <span>LocalLow/TVGS/Schedule I</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Workspace -->
+        <main class="main-content">
+            <!-- No Save Selected State -->
+            <div id="empty-state" class="empty-state">
+                <div class="empty-icon">📂</div>
+                <h2>No Save Slot Selected</h2>
+                <p>Select a save slot from the left panel to begin editing your progress, money, variables, and more safely.</p>
+            </div>
+
+            <!-- Active Save Editor Container -->
+            <div id="editor-workspace" class="editor-workspace hidden">
+                <header class="workspace-header">
+                    <div class="save-title-info">
+                        <h2 id="active-slot-name">SaveGame_4</h2>
+                        <span id="active-steam-id">SteamID: 76561197999975521</span>
+                    </div>
+                    <div class="header-actions">
+                        <button id="btn-save" class="btn btn-primary btn-save">
+                            <svg viewBox="0 0 24 24" class="icon btn-icon"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
+                            Save Changes
+                        </button>
+                    </div>
+                </header>
+
+                <!-- Navigation Tabs -->
+                <nav class="tabs-nav">
+                    <button class="tab-btn active" data-tab="overview">Overview</button>
+                    <button class="tab-btn" data-tab="ranking">Rank & XP</button>
+                    <button class="tab-btn" data-tab="finances">Finances</button>
+                    <button class="tab-btn" data-tab="inventory">Inventory</button>
+                    <button class="tab-btn" data-tab="properties">Businesses & Properties</button>
+                    <button class="tab-btn" data-tab="strains">Product Strains</button>
+                    <button class="tab-btn" data-tab="regions">Regions</button>
+                    <button class="tab-btn" data-tab="variables">Variables</button>
+                    <button class="tab-btn" data-tab="players">Players & Coords</button>
+                    <button class="tab-btn" data-tab="backups">Backups</button>
+                </nav>
+
+                <!-- Tab Panes -->
+                <div class="tab-content">
+                    
+                    <!-- Overview Tab -->
+                    <div id="tab-overview" class="tab-pane active">
+                        <div class="grid-2col">
+                            <div class="card">
+                                <h3>Save Metadata</h3>
+                                <div class="metadata-grid">
+                                    <div class="meta-item"><span class="label">Slot Directory Name:</span> <span id="meta-slot-dir" class="value">SaveGame_4</span></div>
+                                    <div class="meta-item"><span class="label">Steam User ID:</span> <span id="meta-steam-id" class="value">-</span></div>
+                                    <div class="meta-item"><span class="label">Creation Date:</span> <span id="meta-creation" class="value">-</span></div>
+                                    <div class="meta-item"><span class="label">Last Saved Date:</span> <span id="meta-last-played" class="value">-</span></div>
+                                    <div class="meta-item"><span class="label">Game Version:</span> <span id="meta-game-version" class="value">-</span></div>
+                                    <div class="meta-item"><span class="label">Tutorial Completed:</span> <span id="meta-tutorial-done" class="value">-</span></div>
+                                </div>
+                            </div>
+                            <div class="card summary-card">
+                                <h3>Active Status</h3>
+                                <div class="summary-stats">
+                                     <div class="stat-box stat-box-interactive">
+                                         <div class="stat-title">Rank Level</div>
+                                         <select id="overview-rank-selector" class="form-input form-input-compact">
+                                             <option value="0">Street Rat</option>
+                                             <option value="1">Hoodlum</option>
+                                             <option value="2">Peddler</option>
+                                             <option value="3">Hustler</option>
+                                             <option value="4">Bagman</option>
+                                             <option value="5">Enforcer</option>
+                                             <option value="6">Shot Caller</option>
+                                             <option value="7">Block Boss</option>
+                                             <option value="8">Underlord</option>
+                                             <option value="9">Baron</option>
+                                             <option value="10">Kingpin</option>
+                                         </select>
+                                         <select id="overview-tier-selector" class="form-input form-input-compact" style="margin-top: 8px;">
+                                             <option value="1">Tier I</option>
+                                             <option value="2">Tier II</option>
+                                             <option value="3">Tier III</option>
+                                             <option value="4">Tier IV</option>
+                                             <option value="5">Tier V</option>
+                                         </select>
+                                     </div>
+                                    <div class="stat-box">
+                                        <div class="stat-title">Net Worth</div>
+                                        <div id="stat-money-text" class="stat-value">$0.00</div>
+                                        <div id="stat-online-text" class="stat-sub">Balance: $0.00</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Rank & Leveling Tab -->
+                    <div id="tab-ranking" class="tab-pane">
+                        <div class="card rank-editor-card">
+                            <h3>Leveling & Rank Editor</h3>
+                            <p class="section-desc">XP values, ranks, and tiers are automatically kept in mathematical synchronization to prevent save corruption.</p>
+                            
+                            <div class="rank-sliders-container">
+                                <div class="input-group">
+                                    <label for="rank-selector">Major Rank</label>
+                                    <select id="rank-selector" class="form-input">
+                                        <option value="0">Street Rat (0)</option>
+                                        <option value="1">Hoodlum (1)</option>
+                                        <option value="2">Peddler (2)</option>
+                                        <option value="3">Hustler (3)</option>
+                                        <option value="4">Bagman (4)</option>
+                                        <option value="5">Enforcer (5)</option>
+                                        <option value="6">Shot Caller (6)</option>
+                                        <option value="7">Block Boss (7)</option>
+                                        <option value="8">Underlord (8)</option>
+                                        <option value="9">Baron (9)</option>
+                                        <option value="10">Kingpin (10)</option>
+                                    </select>
+                                </div>
+
+                                <div class="input-group">
+                                    <label for="tier-selector">Tier (I - V)</label>
+                                    <select id="tier-selector" class="form-input">
+                                        <option value="1">Tier I</option>
+                                        <option value="2">Tier II</option>
+                                        <option value="3">Tier III</option>
+                                        <option value="4">Tier IV</option>
+                                        <option value="5">Tier V</option>
+                                    </select>
+                                </div>
+
+                                <div class="input-group">
+                                    <label for="input-xp">XP in Current Tier</label>
+                                    <div class="input-with-button">
+                                        <input type="number" id="input-xp" class="form-input" min="0" value="0">
+                                        <span id="xp-limit-label" class="input-badge">/ 240 XP</span>
+                                    </div>
+                                </div>
+
+                                <div class="input-group">
+                                    <label for="input-total-xp">Cumulative Total XP</label>
+                                    <input type="number" id="input-total-xp" class="form-input" min="0" value="0">
+                                </div>
+                            </div>
+
+                            <div class="rank-gauge-box">
+                                <div class="gauge-header">
+                                    <span id="gauge-rank-title">Street Rat V</span>
+                                    <span id="gauge-xp-text">0 / 240 XP</span>
+                                </div>
+                                <div class="gauge-bar-outer">
+                                    <div id="gauge-bar-inner" class="gauge-bar-inner" style="width: 0%"></div>
+                                </div>
+                                <span class="gauge-footer-text">Total Accumulated XP required to reach this tier: <strong id="gauge-total-xp">0</strong> XP</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Finances Tab -->
+                    <div id="tab-finances" class="tab-pane">
+                        <div class="card">
+                            <h3>Financial Accounts</h3>
+                            <div class="finance-editor-grid">
+                                <div class="input-group">
+                                    <label for="input-online-balance">Online Bank Balance ($)</label>
+                                    <div class="input-action-wrapper">
+                                        <input type="number" id="input-online-balance" class="form-input" step="0.01" value="0">
+                                        <div class="quick-buttons">
+                                            <button type="button" class="btn btn-mini" onclick="adjustFinance('input-online-balance', 10000)">+$10k</button>
+                                            <button type="button" class="btn btn-mini" onclick="adjustFinance('input-online-balance', 100000)">+$100k</button>
+                                            <button type="button" class="btn btn-mini" onclick="setFinanceMax('input-online-balance')">Max</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="input-group">
+                                    <label for="input-cash-on-hand">Cash on Hand ($)</label>
+                                    <div class="input-action-wrapper">
+                                        <input type="number" id="input-cash-on-hand" class="form-input" step="0.01" value="0">
+                                        <div class="quick-buttons">
+                                            <button type="button" class="btn btn-mini" onclick="adjustFinance('input-cash-on-hand', 5000)">+$5k</button>
+                                            <button type="button" class="btn btn-mini" onclick="adjustFinance('input-cash-on-hand', 50000)">+$50k</button>
+                                            <button type="button" class="btn btn-mini" onclick="setFinanceMax('input-cash-on-hand')">Max</button>
+                                        </div>
+                                    </div>
+                                    <span class="field-info-lbl" id="cash-on-hand-profile-lbl" style="font-size:0.75rem; color:var(--text-muted); margin-top:4px; display:block;">Profile: Default Profile</span>
+                                </div>
+
+                                <div class="input-group">
+                                    <label for="input-networth">Net Worth ($)</label>
+                                    <div class="input-action-wrapper">
+                                        <input type="number" id="input-networth" class="form-input" step="0.01" value="0">
+                                        <div class="quick-buttons">
+                                            <button type="button" class="btn btn-mini" onclick="adjustFinance('input-networth', 100000)">+$100k</button>
+                                            <button type="button" class="btn btn-mini" onclick="adjustFinance('input-networth', 1000000)">+$1M</button>
+                                            <button type="button" class="btn btn-mini" onclick="setFinanceMax('input-networth')">Max</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="input-group">
+                                    <label for="input-lifetime-earnings">Lifetime Earnings ($)</label>
+                                    <div class="input-action-wrapper">
+                                        <input type="number" id="input-lifetime-earnings" class="form-input" step="0.01" value="0">
+                                        <div class="quick-buttons">
+                                            <button type="button" class="btn btn-mini" onclick="adjustFinance('input-lifetime-earnings', 100000)">+$100k</button>
+                                            <button type="button" class="btn btn-mini" onclick="adjustFinance('input-lifetime-earnings', 1000000)">+$1M</button>
+                                            <button type="button" class="btn btn-mini" onclick="setFinanceMax('input-lifetime-earnings')">Max</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="input-group">
+                                    <label for="input-weekly-deposit">Weekly Deposit Sum ($)</label>
+                                    <div class="input-action-wrapper">
+                                        <input type="number" id="input-weekly-deposit" class="form-input" step="0.01" value="0">
+                                        <div class="quick-buttons">
+                                            <button type="button" class="btn btn-mini" onclick="adjustFinance('input-weekly-deposit', 5000)">+$5k</button>
+                                            <button type="button" class="btn btn-mini" onclick="adjustFinance('input-weekly-deposit', 50000)">+$50k</button>
+                                            <button type="button" class="btn btn-mini" onclick="setFinanceMax('input-weekly-deposit')">Max</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Inventory Tab -->
+                    <div id="tab-inventory" class="tab-pane">
+                        <div class="card inventory-card">
+                            <div class="card-header-flex">
+                                <h3>Backpack Inventory Editor</h3>
+                                <div class="player-select-wrapper">
+                                    <label for="inventory-player-selector">Profile: </label>
+                                    <select id="inventory-player-selector" class="form-input form-input-inline"></select>
+                                </div>
+                            </div>
+                            <p class="section-desc">Edit or spawn items in the player's 9-slot backpack inventory.</p>
+                            
+                            <div class="inventory-grid" id="inventory-slots-container">
+                                <!-- Generated Dynamically by JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Businesses & Properties Tab -->
+                    <div id="tab-properties" class="tab-pane">
+                        <div class="properties-layout">
+                            <div class="grid-2col">
+                                <div class="card">
+                                    <h3>Legal Businesses</h3>
+                                    <p class="section-desc">Instantly buy or sell legal businesses to launder money.</p>
+                                    <div class="toggles-list" id="businesses-toggles-container">
+                                        <!-- Generated Dynamically -->
+                                    </div>
+                                </div>
+                                
+                                <div class="card">
+                                    <h3>Safehouses</h3>
+                                    <p class="section-desc">Unlock safehouses to gain new bases of operations.</p>
+                                    <div class="toggles-list" id="properties-toggles-container">
+                                        <!-- Generated Dynamically -->
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card full-width-card" id="storage-crates-card" style="margin-top: 24px;">
+                                <h3>Placeable Storage Containers</h3>
+                                <p class="section-desc">Edit items inside safes, filing cabinets, or storage racks located inside your owned properties.</p>
+                                <div class="storage-crates-grid" id="storage-crates-container">
+                                    <!-- Generated Dynamically -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Product Strains Tab -->
+                    <div id="tab-strains" class="tab-pane">
+                        <div class="card strains-card">
+                            <h3>Product Strains Database</h3>
+                            <p class="section-desc">Modify custom drug strains, base selling prices, and properties discovered or mixed.</p>
+                            <div class="strains-list" id="strains-list-container">
+                                <!-- Generated Dynamically -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Regions Tab -->
+                    <div id="tab-regions" class="tab-pane">
+                        <div class="card">
+                            <h3>Map Regions Unlock</h3>
+                            <p class="section-desc">Unlock districts and regions to access new areas, drug dealers, and safehouses.</p>
+                            
+                            <div class="regions-list-grid" id="regions-checkbox-container">
+                                <!-- Generated Dynamically -->
+                                <label class="checkbox-card">
+                                    <input type="checkbox" data-region="0">
+                                    <div class="checkbox-content">
+                                        <span class="region-name">Northtown</span>
+                                        <span class="region-desc">Starting area. Gas station and industrial zone.</span>
+                                    </div>
+                                </label>
+                                <label class="checkbox-card">
+                                    <input type="checkbox" data-region="1">
+                                    <div class="checkbox-content">
+                                        <span class="region-name">Westville</span>
+                                        <span class="region-desc">Middle class residential and commercial area.</span>
+                                    </div>
+                                </label>
+                                <label class="checkbox-card">
+                                    <input type="checkbox" data-region="2">
+                                    <div class="checkbox-content">
+                                        <span class="region-name">Downtown</span>
+                                        <span class="region-desc">City highrises and luxury safehouse properties.</span>
+                                    </div>
+                                </label>
+                                <label class="checkbox-card">
+                                    <input type="checkbox" data-region="3">
+                                    <div class="checkbox-content">
+                                        <span class="region-name">Docks</span>
+                                        <span class="region-desc">Industrial harbor, warehouse deals, and export hubs.</span>
+                                    </div>
+                                </label>
+                                <label class="checkbox-card">
+                                    <input type="checkbox" data-region="4">
+                                    <div class="checkbox-content">
+                                        <span class="region-name">Suburbia</span>
+                                        <span class="region-desc">Large residential plots and cartel interactions.</span>
+                                    </div>
+                                </label>
+                                <label class="checkbox-card">
+                                    <input type="checkbox" data-region="5">
+                                    <div class="checkbox-content">
+                                        <span class="region-name">Uptown</span>
+                                        <span class="region-desc">End game luxury estates and top-tier customers.</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Variables Tab -->
+                    <div id="tab-variables" class="tab-pane">
+                        <div class="card">
+                            <div class="card-header-flex">
+                                <h3>Game Variables Editor</h3>
+                                <div class="header-search">
+                                    <input type="text" id="search-variables" class="search-input" placeholder="Search variables by name...">
+                                </div>
+                            </div>
+                            
+                            <div class="variables-tabs">
+                                <button class="var-tab-btn active" data-vartype="global">Global Variables</button>
+                                <button class="var-tab-btn" data-vartype="player">Player-Specific Variables</button>
+                            </div>
+
+                            <div class="variables-table-container">
+                                <table class="variables-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Variable Name</th>
+                                            <th>Value</th>
+                                            <th style="width: 120px;">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="variables-table-body">
+                                        <!-- Loaded dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Players & Coordinates Tab -->
+                    <div id="tab-players" class="tab-pane">
+                        <div class="grid-2col">
+                            <div class="card">
+                                <h3>Select Player Profile</h3>
+                                <div class="input-group">
+                                    <label for="player-selector">Active Player Code</label>
+                                    <select id="player-selector" class="form-input">
+                                        <!-- Populated dynamically -->
+                                    </select>
+                                </div>
+                                <div class="player-info-card">
+                                    <div class="info-row"><span class="label">Format Version:</span> <span id="lbl-player-version">-</span></div>
+                                    <div class="info-row"><span class="label">Intro Status:</span> <span id="lbl-player-intro">-</span></div>
+                                    <div class="info-row"><span class="label">Inventory Size:</span> <span id="lbl-player-inventory">-</span></div>
+                                </div>
+                            </div>
+
+                            <div class="card">
+                                <h3>Player Position (Teleportation)</h3>
+                                <div class="coords-editor">
+                                    <div class="input-group">
+                                        <label for="coord-x">Coordinate X</label>
+                                        <input type="number" id="coord-x" class="form-input" step="0.0001">
+                                    </div>
+                                    <div class="input-group">
+                                        <label for="coord-y">Coordinate Y (Height)</label>
+                                        <input type="number" id="coord-y" class="form-input" step="0.0001">
+                                    </div>
+                                    <div class="input-group">
+                                        <label for="coord-z">Coordinate Z</label>
+                                        <input type="number" id="coord-z" class="form-input" step="0.0001">
+                                    </div>
+                                    <div class="input-group">
+                                        <label for="coord-rot">Rotation (Y-Yaw)</label>
+                                        <input type="number" id="coord-rot" class="form-input" step="0.0001" min="0" max="360">
+                                    </div>
+                                </div>
+
+                                <div class="teleport-presets">
+                                    <h4>Teleport Presets</h4>
+                                    <div class="preset-buttons">
+                                        <button class="btn btn-mini btn-secondary" onclick="teleportTo(-64.00, 0.71, 138.98, 309.8)">Gas Station Safehouse</button>
+                                        <button class="btn btn-mini btn-secondary" onclick="teleportTo(-21.75, 1.06, 9.66, 352.8)">Downtown Hub</button>
+                                        <button class="btn btn-mini btn-secondary" onclick="teleportTo(0.00, 0.50, 0.00, 0.0)">Origin (0, 0, 0)</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Backups Tab -->
+                    <div id="tab-backups" class="tab-pane">
+                        <div class="card">
+                            <div class="card-header-flex">
+                                <h3>Save Backups</h3>
+                                <button id="btn-create-backup" class="btn btn-secondary">Create Manual Backup</button>
+                            </div>
+                            <p class="section-desc">Before writing any changes, a backup folder is automatically generated. You can select any point to restore your files safely.</p>
+                            
+                            <div class="backups-table-container">
+                                <table class="backups-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Backup Name</th>
+                                            <th>Date & Time Created</th>
+                                            <th style="width: 150px; text-align: right;">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="backups-table-body">
+                                        <!-- Loaded dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Alert / Toast Modals -->
+    <div id="alert-modal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <h3 id="modal-title">Success</h3>
+            <p id="modal-message">Changes saved successfully!</p>
+            <div class="modal-actions">
+                <button id="modal-btn-ok" class="btn btn-primary">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <datalist id="all-items-datalist"></datalist>
+
+    <script src="app.js"></script>
+</body>
+</html>
