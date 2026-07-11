@@ -1597,16 +1597,16 @@ namespace ThrowUpMod
                         hiddenRenderersMap.Remove(surface);
                     }
                     surface.ClearDrawing();
+                    RepositionCanvas(surface, Vector3.down * 1000f, Quaternion.identity);
                     try
                     {
                         var worldSurf = surface.TryCast<WorldSpraySurface>();
                         if (worldSurf != null)
                         {
-                            RemoveCanvasPosition(worldSurf.GUID.ToString());
+                            SaveCanvasPosition(worldSurf);
                         }
                     }
                     catch {}
-                    RepositionCanvas(surface, Vector3.down * 1000f, Quaternion.identity);
                     MelonLogger.Msg($"Removed spray paint canvas successfully.");
                 }
             }
@@ -1696,18 +1696,18 @@ namespace ThrowUpMod
                     }
 
                     bestTarget.ClearDrawing();
+                    RepositionCanvas(bestTarget, UnityEngine.Vector3.down * 1000f, UnityEngine.Quaternion.identity);
 
                     try
                     {
                         var worldSurf = bestTarget.TryCast<WorldSpraySurface>();
                         if (worldSurf != null)
                         {
-                            RemoveCanvasPosition(worldSurf.GUID.ToString());
+                            SaveCanvasPosition(worldSurf);
                         }
                     }
                     catch {}
 
-                    RepositionCanvas(bestTarget, UnityEngine.Vector3.down * 1000f, UnityEngine.Quaternion.identity);
                     MelonLogger.Msg($"[Better Cleanup] Removed spray paint canvas successfully.");
                 }
             }
@@ -1730,11 +1730,12 @@ namespace ThrowUpMod
                 }
 
                 string guidStr = surface.GUID.ToString();
+                string sceneName = surface.gameObject.scene.name ?? UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
 
                 CanvasTransformData toRemove = null;
                 foreach (var c in data.canvases)
                 {
-                    if (c.guid == guidStr)
+                    if (c.guid == guidStr && c.scene == sceneName)
                     {
                         toRemove = c;
                         break;
@@ -1747,6 +1748,7 @@ namespace ThrowUpMod
 
                 var entry = new CanvasTransformData();
                 entry.guid = guidStr;
+                entry.scene = sceneName;
                 entry.px = surface.transform.position.x;
                 entry.py = surface.transform.position.y;
                 entry.pz = surface.transform.position.z;
@@ -1758,7 +1760,7 @@ namespace ThrowUpMod
 
                 string newJson = SerializeCustomJson(data);
                 System.IO.File.WriteAllText(path, newJson);
-                MelonLogger.Msg($"[Save/Load] Saved canvas position for GUID: {guidStr}");
+                MelonLogger.Msg($"[Save/Load] Saved canvas position for GUID: {guidStr} in scene: {sceneName}");
             }
             catch (System.Exception ex)
             {
@@ -1815,12 +1817,19 @@ namespace ThrowUpMod
                 var surfaces = Resources.FindObjectsOfTypeAll<WorldSpraySurface>();
                 if (surfaces == null) return;
 
+                string activeSceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+
                 int count = 0;
                 foreach (var tData in data.canvases)
                 {
+                    if (!string.IsNullOrEmpty(tData.scene) && tData.scene != activeSceneName)
+                    {
+                        continue;
+                    }
+
                     foreach (var s in surfaces)
                     {
-                        if (s != null && s.GUID.ToString() == tData.guid)
+                        if (s != null && s.gameObject.activeInHierarchy && s.gameObject.scene.name == activeSceneName && s.GUID.ToString() == tData.guid)
                         {
                             s.transform.position = new Vector3(tData.px, tData.py, tData.pz);
                             s.transform.rotation = new Quaternion(tData.rx, tData.ry, tData.rz, tData.rw);
@@ -1834,7 +1843,7 @@ namespace ThrowUpMod
                         }
                     }
                 }
-                MelonLogger.Msg($"[Save/Load] Restored {count} canvas positions.");
+                MelonLogger.Msg($"[Save/Load] Restored {count} canvas positions for scene: {activeSceneName}");
             }
             catch (System.Exception ex)
             {
@@ -1852,6 +1861,7 @@ namespace ThrowUpMod
                 var c = data.canvases[i];
                 sb.AppendLine("    {");
                 sb.AppendLine($"      \"guid\": \"{c.guid}\",");
+                sb.AppendLine($"      \"scene\": \"{c.scene}\",");
                 sb.AppendLine($"      \"px\": {c.px.ToString(System.Globalization.CultureInfo.InvariantCulture)},");
                 sb.AppendLine($"      \"py\": {c.py.ToString(System.Globalization.CultureInfo.InvariantCulture)},");
                 sb.AppendLine($"      \"pz\": {c.pz.ToString(System.Globalization.CultureInfo.InvariantCulture)},");
@@ -1877,6 +1887,7 @@ namespace ThrowUpMod
                     if (!part.Contains("\"guid\"")) continue;
                     var entry = new CanvasTransformData();
                     entry.guid = ExtractJsonField(part, "guid");
+                    entry.scene = ExtractJsonField(part, "scene");
                     entry.px = ParseFloat(ExtractJsonField(part, "px"));
                     entry.py = ParseFloat(ExtractJsonField(part, "py"));
                     entry.pz = ParseFloat(ExtractJsonField(part, "pz"));
@@ -1923,6 +1934,7 @@ namespace ThrowUpMod
         public class CanvasTransformData
         {
             public string guid;
+            public string scene;
             public float px, py, pz;
             public float rx, ry, rz, rw;
         }
