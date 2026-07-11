@@ -1717,10 +1717,50 @@ namespace ThrowUpMod
             }
         }
 
+        private static void UpdateCanvasRegion(WorldSpraySurface surface)
+        {
+            try
+            {
+                if (surface == null) return;
+
+                if (Il2CppScheduleOne.Map.Map.Instance != null)
+                {
+                    var region = Il2CppScheduleOne.Map.Map.Instance.GetRegionFromPosition(surface.transform.position);
+                    
+                    var prop = typeof(WorldSpraySurface).GetProperty("Region", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+                    if (prop != null)
+                    {
+                        var setMethod = prop.GetSetMethod(true);
+                        if (setMethod != null)
+                        {
+                            setMethod.Invoke(surface, new object[] { region });
+                            MelonLogger.Msg($"[Region Update] Updated canvas GUID {surface.GUID} region property to {region}");
+                            return;
+                        }
+                    }
+
+                    var field = typeof(WorldSpraySurface).GetField("<Region>k__BackingField", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
+                    if (field != null)
+                    {
+                        field.SetValue(surface, region);
+                        MelonLogger.Msg($"[Region Update] Updated canvas GUID {surface.GUID} region backing field to {region}");
+                        return;
+                    }
+                    
+                    MelonLogger.Warning($"[Region Update] Failed to update region property for canvas GUID {surface.GUID} via reflection.");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                MelonLogger.Error($"Error updating canvas region: {ex}");
+            }
+        }
+
         private static void SaveCanvasPosition(WorldSpraySurface surface)
         {
             try
             {
+                UpdateCanvasRegion(surface);
                 string path = "UserData/PlacedCanvases.json";
                 var data = new SaveCanvasData();
                 if (System.IO.File.Exists(path))
@@ -1833,6 +1873,7 @@ namespace ThrowUpMod
                         {
                             s.transform.position = new Vector3(tData.px, tData.py, tData.pz);
                             s.transform.rotation = new Quaternion(tData.rx, tData.ry, tData.rz, tData.rw);
+                            UpdateCanvasRegion(s);
 
                             if (s.Projector != null)
                             {
